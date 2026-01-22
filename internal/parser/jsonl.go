@@ -180,7 +180,7 @@ func ParseJSONL(path string) (*Session, error) {
 }
 
 func generateTags(s *Session) []string {
-	var tags []string
+	tags := make([]string, 0)
 
 	// Tag by tools used
 	for tool := range s.Tools {
