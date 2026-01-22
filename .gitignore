@@ -11,4 +11,5 @@ claude-insights-agent
 .DS_Store
 
 # Build
+build/
 dist/
