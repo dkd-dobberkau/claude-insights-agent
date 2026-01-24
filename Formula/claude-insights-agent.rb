@@ -7,14 +7,14 @@ class ClaudeInsightsAgent < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/dkd-dobberkau/claude-insights-agent/releases/download/v0.2.0/claude-insights-agent-darwin-arm64"
-      sha256 "e15d335ac5dc401fc569b853797af52e30a65351f2e359c92227faf350142239"
+      sha256 "1c813cc37f132b83adbaa9980f0ec246c891ebd930a47f1f232c76a063b70038"
 
       def install
         bin.install "claude-insights-agent-darwin-arm64" => "claude-insights-agent"
       end
     else
       url "https://github.com/dkd-dobberkau/claude-insights-agent/releases/download/v0.2.0/claude-insights-agent-darwin-amd64"
-      sha256 "f3dbf3e16475abbcdb6b8f553ab180c64051092c92d2f070409ff1f77f4eb3c7"
+      sha256 "603e9cc828ced89e6a9566f17d2db47bf9091c9f159472b80bd1cc06a587c617"
 
       def install
         bin.install "claude-insights-agent-darwin-amd64" => "claude-insights-agent"
@@ -25,14 +25,14 @@ class ClaudeInsightsAgent < Formula
   on_linux do
     if Hardware::CPU.arm?
       url "https://github.com/dkd-dobberkau/claude-insights-agent/releases/download/v0.2.0/claude-insights-agent-linux-arm64"
-      sha256 "6a930850d9583a687ffc0f7e35fd68e16d66291efd3d1adff17706195c930d3f"
+      sha256 "ac6140b3dd2eb114bc53d7252e9e9e6142d75c3c22aca2ff19a4e17a8e5a5f7f"
 
       def install
         bin.install "claude-insights-agent-linux-arm64" => "claude-insights-agent"
       end
     else
       url "https://github.com/dkd-dobberkau/claude-insights-agent/releases/download/v0.2.0/claude-insights-agent-linux-amd64"
-      sha256 "2bdb2641b82a1b5cfe10e83fea8c5e32c3d4063e2cbb9d51de2818d9938e4b6b"
+      sha256 "0382a8c0355552061184bfd8205c2de6019101b910f1c421c82852fdfd6b96dc"
 
       def install
         bin.install "claude-insights-agent-linux-amd64" => "claude-insights-agent"
