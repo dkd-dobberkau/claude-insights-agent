@@ -23,6 +23,8 @@ type Session struct {
 	Tools          map[string]*ToolStats `json:"tools"`
 	Tags           []string             `json:"tags"`
 	Messages       []Message            `json:"messages,omitempty"`
+	TokenUsage     []TokenUsageItem     `json:"token_usage"`
+	ToolCalls      []ToolCallItem       `json:"tool_calls"`
 }
 
 type ToolStats struct {
@@ -36,6 +38,27 @@ type Message struct {
 	Timestamp time.Time `json:"timestamp,omitempty"`
 	Role      string    `json:"role"`
 	Content   string    `json:"content"`
+}
+
+// TokenUsageItem represents per-message token usage
+type TokenUsageItem struct {
+	MessageSeq          int       `json:"message_sequence,omitempty"`
+	Timestamp           time.Time `json:"timestamp,omitempty"`
+	Model               string    `json:"model,omitempty"`
+	InputTokens         int       `json:"input_tokens"`
+	OutputTokens        int       `json:"output_tokens"`
+	CacheReadTokens     int       `json:"cache_read_tokens"`
+	CacheCreationTokens int       `json:"cache_creation_tokens"`
+}
+
+// ToolCallItem represents a detailed tool call
+type ToolCallItem struct {
+	MessageSeq int    `json:"message_sequence,omitempty"`
+	ToolName   string `json:"tool_name"`
+	ToolInput  string `json:"tool_input,omitempty"`
+	ToolOutput string `json:"tool_output,omitempty"`
+	DurationMs int    `json:"duration_ms,omitempty"`
+	Success    bool   `json:"success"`
 }
 
 // RawEntry represents a single line in JSONL
@@ -61,8 +84,10 @@ type ContentBlock struct {
 }
 
 type Usage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 }
 
 // ParseJSONL parses a JSONL session file
@@ -74,9 +99,11 @@ func ParseJSONL(path string) (*Session, error) {
 	defer file.Close()
 
 	session := &Session{
-		ID:    filepath.Base(strings.TrimSuffix(path, ".jsonl")),
-		Tools: make(map[string]*ToolStats),
-		Tags:  []string{},
+		ID:         filepath.Base(strings.TrimSuffix(path, ".jsonl")),
+		Tools:      make(map[string]*ToolStats),
+		Tags:       []string{},
+		TokenUsage: []TokenUsageItem{},
+		ToolCalls:  []ToolCallItem{},
 	}
 
 	// Extract project path from parent directory
@@ -128,6 +155,9 @@ func ParseJSONL(path string) (*Session, error) {
 				json.Unmarshal(entry.Message, &msgContent)
 			}
 
+			// Parse message timestamp
+			msgTs, _ := time.Parse(time.RFC3339, entry.Timestamp)
+
 			// Extract text and tool usage
 			var textParts []string
 			for _, block := range msgContent.Content {
@@ -141,6 +171,20 @@ func ParseJSONL(path string) (*Session, error) {
 						}
 						session.Tools[block.Name].Count++
 						session.Tools[block.Name].Success++ // Assume success
+
+						// Collect detailed tool call
+						var toolInput string
+						if block.Input != nil {
+							if inputBytes, err := json.Marshal(block.Input); err == nil {
+								toolInput = string(inputBytes)
+							}
+						}
+						session.ToolCalls = append(session.ToolCalls, ToolCallItem{
+							MessageSeq: msgSeq,
+							ToolName:   block.Name,
+							ToolInput:  toolInput,
+							Success:    true,
+						})
 					}
 				}
 			}
@@ -149,13 +193,24 @@ func ParseJSONL(path string) (*Session, error) {
 			if msgContent.Usage != nil {
 				session.TotalTokensIn += msgContent.Usage.InputTokens
 				session.TotalTokensOut += msgContent.Usage.OutputTokens
+
+				// Collect detailed token usage per message
+				session.TokenUsage = append(session.TokenUsage, TokenUsageItem{
+					MessageSeq:          msgSeq,
+					Timestamp:           msgTs,
+					Model:               msgContent.Model,
+					InputTokens:         msgContent.Usage.InputTokens,
+					OutputTokens:        msgContent.Usage.OutputTokens,
+					CacheReadTokens:     msgContent.Usage.CacheReadInputTokens,
+					CacheCreationTokens: msgContent.Usage.CacheCreationInputTokens,
+				})
 			}
 			if msgContent.Model != "" {
 				session.Model = msgContent.Model
 			}
 
 			// Store message
-			ts, _ := time.Parse(time.RFC3339, entry.Timestamp)
+			ts := msgTs
 			session.Messages = append(session.Messages, Message{
 				Seq:       msgSeq,
 				Timestamp: ts,

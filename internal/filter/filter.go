@@ -36,6 +36,7 @@ func (f *Filter) Apply(s *parser.Session) *parser.Session {
 		Model:          s.Model,
 		Tools:          s.Tools,
 		Tags:           s.Tags,
+		TokenUsage:     s.TokenUsage, // Always include token stats
 	}
 
 	// Anonymize or include project name
@@ -52,12 +53,14 @@ func (f *Filter) Apply(s *parser.Session) *parser.Session {
 		return nil
 
 	case "metadata":
-		// Share metadata only, no message content
+		// Share metadata only, no message content or tool details
 		filtered.Messages = nil
+		filtered.ToolCalls = nil
 
 	case "full":
-		// Share everything including messages
+		// Share everything including messages and tool calls
 		filtered.Messages = s.Messages
+		filtered.ToolCalls = s.ToolCalls
 	}
 
 	return filtered
