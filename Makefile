@@ -1,7 +1,7 @@
 .PHONY: build install clean test release
 
 BINARY_NAME=claude-insights-agent
-VERSION?=0.1.0
+VERSION?=0.2.0
 BUILD_DIR=build
 INSTALL_DIR?=$(HOME)/.local/bin
 
