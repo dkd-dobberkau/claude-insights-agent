@@ -1,12 +1,12 @@
-.PHONY: build install clean test release
+.PHONY: build install clean test build-all release lint fmt deps help
 
 BINARY_NAME=claude-insights-agent
-VERSION?=0.2.0
+VERSION?=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 BUILD_DIR=build
 INSTALL_DIR?=$(HOME)/.local/bin
 
-# Build flags
-LDFLAGS=-ldflags "-s -w"
+# Build flags - inject version at build time
+LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
 
 # Go parameters
 GOCMD=go
@@ -38,8 +38,8 @@ deps:
 	$(GOMOD) tidy
 	$(GOMOD) download
 
-# Build for all platforms
-release: clean
+# Build for all platforms (local cross-compilation)
+build-all: clean
 	@mkdir -p $(BUILD_DIR)
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/agent/
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/agent/
@@ -47,6 +47,10 @@ release: clean
 	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/agent/
 	@echo "Binaries built in $(BUILD_DIR)/"
 	@ls -la $(BUILD_DIR)/
+
+# Create a release (interactive, triggers GitHub Actions + GoReleaser)
+release:
+	./scripts/release.sh
 
 # Lint
 lint:
@@ -59,11 +63,12 @@ fmt:
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  build    - Build for current platform"
-	@echo "  install  - Build and install to ~/.local/bin"
-	@echo "  test     - Run tests"
-	@echo "  clean    - Remove build artifacts"
-	@echo "  deps     - Update dependencies"
-	@echo "  release  - Build for all platforms"
-	@echo "  lint     - Run linter"
-	@echo "  fmt      - Format code"
+	@echo "  build     - Build for current platform"
+	@echo "  install   - Build and install to ~/.local/bin"
+	@echo "  test      - Run tests"
+	@echo "  clean     - Remove build artifacts"
+	@echo "  deps      - Update dependencies"
+	@echo "  build-all - Build for all platforms (local)"
+	@echo "  release   - Create release (interactive, via GoReleaser)"
+	@echo "  lint      - Run linter"
+	@echo "  fmt       - Format code"

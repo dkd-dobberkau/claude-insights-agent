@@ -1,0 +1,64 @@
+version: 2
+
+project_name: claude-insights-agent
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/agent/
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - format: binary
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- .Os }}-
+      {{- .Arch }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+brews:
+  - name: claude-insights-agent
+    repository:
+      owner: dkd-dobberkau
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/dkd-dobberkau/claude-insights-agent"
+    description: "Sync Claude Code sessions to team server"
+    license: "MIT"
+    install: |
+      bin.install "claude-insights-agent"
+    test: |
+      system "#{bin}/claude-insights-agent", "version"
+    service: |
+      run [opt_bin/"claude-insights-agent", "run"]
+      keep_alive true
+      log_path var/"log/claude-insights-agent.log"
+      error_log_path var/"log/claude-insights-agent.log"
+    caveats: |
+      To get started, run:
+        claude-insights-agent init
+
+      To run as a background service:
+        brew services start claude-insights-agent

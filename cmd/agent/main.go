@@ -13,7 +13,8 @@ import (
 	"github.com/dkd/claude-insights-agent/internal/watcher"
 )
 
-const version = "0.2.0"
+// version is set via ldflags at build time
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
