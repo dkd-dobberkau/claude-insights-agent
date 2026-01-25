@@ -118,67 +118,63 @@ func (w *Watcher) sync() error {
 
 	if len(newFiles) == 0 {
 		w.logger.Println("No new sessions to sync")
-		return nil
-	}
+	} else {
+		w.logger.Printf("Found %d new sessions", len(newFiles))
 
-	w.logger.Printf("Found %d new sessions", len(newFiles))
-
-	// Parse and upload sessions
-	var toUpload []*parser.Session
-	for _, f := range newFiles {
-		session, err := parser.ParseJSONL(f)
-		if err != nil {
-			w.logger.Printf("Error parsing %s: %v", f, err)
-			continue
-		}
-
-		// Apply privacy filter
-		filtered := w.filter.Apply(session)
-		if filtered == nil {
-			w.logger.Printf("Session %s excluded by filter", session.ID)
-			// Mark as synced anyway to avoid re-processing
-			w.state.SyncedSessions[session.ID] = time.Now()
-			continue
-		}
-
-		toUpload = append(toUpload, filtered)
-	}
-
-	if len(toUpload) == 0 {
-		w.logger.Println("No sessions to upload after filtering")
-		return w.saveState()
-	}
-
-	// Upload in batches of 10
-	batchSize := 10
-	for i := 0; i < len(toUpload); i += batchSize {
-		end := i + batchSize
-		if end > len(toUpload) {
-			end = len(toUpload)
-		}
-		batch := toUpload[i:end]
-
-		var uploadErr error
-		for attempt := 1; attempt <= w.cfg.Sync.RetryAttempts; attempt++ {
-			responses, err := w.client.UploadBatch(batch)
-			if err == nil {
-				for j, resp := range responses {
-					w.state.SyncedSessions[batch[j].ID] = time.Now()
-					if len(resp.Warnings) > 0 {
-						w.logger.Printf("Session %s: warnings: %v", resp.SessionID, resp.Warnings)
-					}
-				}
-				w.logger.Printf("Uploaded %d sessions", len(batch))
-				uploadErr = nil
-				break
+		// Parse and upload sessions
+		var toUpload []*parser.Session
+		for _, f := range newFiles {
+			session, err := parser.ParseJSONL(f)
+			if err != nil {
+				w.logger.Printf("Error parsing %s: %v", f, err)
+				continue
 			}
-			uploadErr = err
-			w.logger.Printf("Upload attempt %d failed: %v", attempt, err)
-			time.Sleep(time.Duration(attempt*2) * time.Second)
+
+			// Apply privacy filter
+			filtered := w.filter.Apply(session)
+			if filtered == nil {
+				w.logger.Printf("Session %s excluded by filter", session.ID)
+				// Mark as synced anyway to avoid re-processing
+				w.state.SyncedSessions[session.ID] = time.Now()
+				continue
+			}
+
+			toUpload = append(toUpload, filtered)
 		}
 
-		if uploadErr != nil {
-			w.logger.Printf("Failed to upload batch after %d attempts", w.cfg.Sync.RetryAttempts)
+		if len(toUpload) > 0 {
+			// Upload in batches of 10
+			batchSize := 10
+			for i := 0; i < len(toUpload); i += batchSize {
+				end := i + batchSize
+				if end > len(toUpload) {
+					end = len(toUpload)
+				}
+				batch := toUpload[i:end]
+
+				var uploadErr error
+				for attempt := 1; attempt <= w.cfg.Sync.RetryAttempts; attempt++ {
+					responses, err := w.client.UploadBatch(batch)
+					if err == nil {
+						for j, resp := range responses {
+							w.state.SyncedSessions[batch[j].ID] = time.Now()
+							if len(resp.Warnings) > 0 {
+								w.logger.Printf("Session %s: warnings: %v", resp.SessionID, resp.Warnings)
+							}
+						}
+						w.logger.Printf("Uploaded %d sessions", len(batch))
+						uploadErr = nil
+						break
+					}
+					uploadErr = err
+					w.logger.Printf("Upload attempt %d failed: %v", attempt, err)
+					time.Sleep(time.Duration(attempt*2) * time.Second)
+				}
+
+				if uploadErr != nil {
+					w.logger.Printf("Failed to upload batch after %d attempts", w.cfg.Sync.RetryAttempts)
+				}
+			}
 		}
 	}
 
