@@ -77,10 +77,11 @@ type MessageContent struct {
 }
 
 type ContentBlock struct {
-	Type  string `json:"type"`
-	Text  string `json:"text,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Input any    `json:"input,omitempty"`
+	Type    string `json:"type"`
+	Text    string `json:"text,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Input   any    `json:"input,omitempty"`
+	Content string `json:"content,omitempty"` // For tool_result blocks
 }
 
 type Usage struct {
@@ -174,6 +175,11 @@ func ParseJSONL(path string) (*Session, error) {
 							switch block.Type {
 							case "text":
 								textParts = append(textParts, block.Text)
+							case "tool_result":
+								// Tool results contain user responses and tool outputs
+								if block.Content != "" {
+									textParts = append(textParts, block.Content)
+								}
 							case "tool_use":
 								if block.Name != "" {
 									if session.Tools[block.Name] == nil {
