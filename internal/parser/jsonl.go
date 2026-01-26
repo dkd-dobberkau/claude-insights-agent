@@ -71,9 +71,9 @@ type RawEntry struct {
 }
 
 type MessageContent struct {
-	Content []ContentBlock `json:"content"`
-	Usage   *Usage         `json:"usage,omitempty"`
-	Model   string         `json:"model,omitempty"`
+	Content json.RawMessage `json:"content"` // Can be string or []ContentBlock
+	Usage   *Usage          `json:"usage,omitempty"`
+	Model   string          `json:"model,omitempty"`
 }
 
 type ContentBlock struct {
@@ -159,32 +159,45 @@ func ParseJSONL(path string) (*Session, error) {
 			msgTs, _ := time.Parse(time.RFC3339, entry.Timestamp)
 
 			// Extract text and tool usage
+			// Content can be either a string (user messages) or array of blocks (assistant)
 			var textParts []string
-			for _, block := range msgContent.Content {
-				switch block.Type {
-				case "text":
-					textParts = append(textParts, block.Text)
-				case "tool_use":
-					if block.Name != "" {
-						if session.Tools[block.Name] == nil {
-							session.Tools[block.Name] = &ToolStats{}
-						}
-						session.Tools[block.Name].Count++
-						session.Tools[block.Name].Success++ // Assume success
+			if len(msgContent.Content) > 0 {
+				// Try parsing as string first (user messages)
+				var contentStr string
+				if err := json.Unmarshal(msgContent.Content, &contentStr); err == nil {
+					textParts = append(textParts, contentStr)
+				} else {
+					// Parse as array of content blocks (assistant messages)
+					var blocks []ContentBlock
+					if err := json.Unmarshal(msgContent.Content, &blocks); err == nil {
+						for _, block := range blocks {
+							switch block.Type {
+							case "text":
+								textParts = append(textParts, block.Text)
+							case "tool_use":
+								if block.Name != "" {
+									if session.Tools[block.Name] == nil {
+										session.Tools[block.Name] = &ToolStats{}
+									}
+									session.Tools[block.Name].Count++
+									session.Tools[block.Name].Success++ // Assume success
 
-						// Collect detailed tool call
-						var toolInput string
-						if block.Input != nil {
-							if inputBytes, err := json.Marshal(block.Input); err == nil {
-								toolInput = string(inputBytes)
+									// Collect detailed tool call
+									var toolInput string
+									if block.Input != nil {
+										if inputBytes, err := json.Marshal(block.Input); err == nil {
+											toolInput = string(inputBytes)
+										}
+									}
+									session.ToolCalls = append(session.ToolCalls, ToolCallItem{
+										MessageSeq: msgSeq,
+										ToolName:   block.Name,
+										ToolInput:  toolInput,
+										Success:    true,
+									})
+								}
 							}
 						}
-						session.ToolCalls = append(session.ToolCalls, ToolCallItem{
-							MessageSeq: msgSeq,
-							ToolName:   block.Name,
-							ToolInput:  toolInput,
-							Success:    true,
-						})
 					}
 				}
 			}
