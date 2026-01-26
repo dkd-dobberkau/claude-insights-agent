@@ -48,7 +48,7 @@ brews:
     description: "Sync Claude Code sessions to team server"
     license: "MIT"
     install: |
-      bin.install "claude-insights-agent"
+      bin.install "{{ .ArtifactName }}" => "claude-insights-agent"
     test: |
       system "#{bin}/claude-insights-agent", "version"
     service: |
