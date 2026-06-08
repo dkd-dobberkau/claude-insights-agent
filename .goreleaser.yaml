@@ -50,7 +50,7 @@ brews:
     install: |
       bin.install "{{ .ArtifactName }}" => "claude-insights-agent"
     test: |
-      system "#{bin}/claude-insights-agent", "version"
+      system bin/"claude-insights-agent", "version"
     service: |
       run [opt_bin/"claude-insights-agent", "run"]
       keep_alive true
